@@ -48,6 +48,7 @@ export default class MusicPlayer extends Extension<Command>{
 
     private play = async (message: Message, args: string, nextSong?: string) => {
         try {
+            console.log(args)
             let songUrl = ''
             if (!message.member?.voice.channel) {
                 message.delete();

@@ -35,8 +35,9 @@ export default class Controller<T extends Command> implements Icontroller<T> {
             if(!extension) return;
             console.log(ClientId)
             console.log(extension.get(command));
-            extension.get(command).method(message, ...query)
-            
+            const cmd = extension.get(command) 
+            if(!cmd) return;
+            cmd.method(message, query.join(' '))
         } catch (error){
             console.error(error)
         }
