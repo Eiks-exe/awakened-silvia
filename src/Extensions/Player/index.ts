@@ -64,6 +64,11 @@ export default class MusicPlayer extends Extension<Command> {
       method: this.list,
       description: "list commandes",
     });
+    this.register({
+      id:"volume",
+      method: this.setVolume,
+      description: "set the volume of the player"
+    })
   }
 
   private async playerInfo(args: playerInfo, message: Message) {
@@ -77,13 +82,13 @@ export default class MusicPlayer extends Extension<Command> {
     message.channel.send({embeds: [embed]})
     if (args.status == "Added in playlist") message.delete();
   }
-
+  /*@NWZ44- they is a much more simple way to make this work but im lazy. (i will do more clean when i will have time) */
   private play = async (message: Message, args: string, nextSong?: string) => {
     try {
       let songUrl = "";
       if (!message.member?.voice.channel) {
         message.delete();
-        message.reply("i'm sorry, but you should be in a channel. ^^'");
+        message.channel.send("i'm sorry, but you should be in a channel. ^^");
         return;
       }
       if (!nextSong && this.queue.size() == 0) {
@@ -165,10 +170,7 @@ export default class MusicPlayer extends Extension<Command> {
         this.audioplayer = createAudioPlayer();
         this.audioplayer.play(this.stream);
         this.connection.subscribe(this.audioplayer);
-        this.audioplayer.on(AudioPlayerStatus.Idle, finish);
-        //TODO delete that
-        //this.audioplayer = this.connection?.play(this.stream);
-        //this.audioplayer.on("finish", finish);
+        this.audioplayer.on(AudioPlayerStatus.Idle, finish);      
         console.log(`Start playing: ${args}, url: ${this.queue.peek()}`);
         return;
       }
@@ -188,7 +190,8 @@ export default class MusicPlayer extends Extension<Command> {
         message.reply("i'm not playing anything right now");
         return;
       }
-      this.audioplayer?.stop()  
+      if(!this.audioplayer)return;
+      this.audioplayer.stop()  
       this.queue.clear();
       message.channel.send("player stopped");
     } catch (error) {
@@ -234,26 +237,27 @@ export default class MusicPlayer extends Extension<Command> {
         message.reply("not playing anything right now ^^'");
         return;
       }
-      this.audioplayer.stop();
-      this.queue.dequeue();
+      if (this.queue.size() == 0)return;
+      this.audioplayer.stop()
     } catch (error) {
       console.error(error);
     }
   };
-  /*
+
   private setVolume = async (message: Message, args: number): Promise<void> => {
     try {
       if (!this.audioplayer) {
         message.reply("not playing anything right now ^^'");
         return;
       }
-      this.audioplayer.setVolume(args);
+      if(!this.stream)return;
+      this.stream.volume?.setVolume(args)
       console.log("volume is now to: " + args);
     } catch (error) {
       console.error(error);
     }
   };
-*/
+
   private list = async (message: Message, args: string): Promise<void> => {
     try {
       switch (args) {
