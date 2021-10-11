@@ -1,10 +1,14 @@
 import { Command, Extension } from "../Extension";
+import { Message, MessageEmbed } from "discord.js";
 import {
-  Message,
-  MessageEmbed,
-  StreamDispatcher,
+  AudioPlayer,
+  AudioPlayerStatus,
+  AudioResource,
   VoiceConnection,
-} from "discord.js";
+  createAudioPlayer,
+  joinVoiceChannel,
+  createAudioResource,
+} from "@discordjs/voice";
 import yts from "yt-search";
 import ytdl from "ytdl-core";
 import { Queue } from "typescript-collections";
@@ -20,14 +24,14 @@ interface playerInfo {
 export default class MusicPlayer extends Extension<Command> {
   queue: Queue<string>;
   connection: VoiceConnection | undefined;
-  dispatcher: StreamDispatcher | undefined;
-  stream: any;
+  audioplayer: AudioPlayer | undefined;
+  stream: AudioResource | undefined;
   constructor() {
     super("Player");
     this.queue = new Queue<string>();
     this.connection = undefined;
     this.connection = undefined;
-    this.dispatcher = undefined;
+    this.audioplayer = undefined;
     this.stream = undefined;
     //this.register({id: '', method: function, description:''})
     this.register({
@@ -56,15 +60,10 @@ export default class MusicPlayer extends Extension<Command> {
       description: "resume a song",
     });
     this.register({
-      id: "volume",
-      method: this.setVolume,
-      description: "change the volume",
+      id: "list",
+      method: this.list,
+      description: "list commandes",
     });
-    this.register({
-       id:"list",
-       method: this.list,
-       description: "list commandes"
-    })
   }
 
   private async playerInfo(args: playerInfo, message: Message) {
@@ -75,7 +74,7 @@ export default class MusicPlayer extends Extension<Command> {
     embed.addField("duration", args.timestamp);
     embed.addField("link", args.url);
     embed.setThumbnail(args.image);
-    message.channel.send(embed);
+    message.channel.send({embeds: [embed]})
     if (args.status == "Added in playlist") message.delete();
   }
 
@@ -133,15 +132,24 @@ export default class MusicPlayer extends Extension<Command> {
           message
         );
       }
-      this.connection = await message.member.voice.channel.join();
+      const channel = message.member.voice.channel;
+      if (!channel) return;
+      if (!message.guild) return;
+      this.connection = joinVoiceChannel({
+        channelId: channel.id,
+        guildId: message.guild.id,
+        adapterCreator: message.guild.voiceAdapterCreator,
+      });
       if (songUrl != this.queue.peek()) this.queue.enqueue(songUrl);
       if (songUrl === this.queue.peek()) {
-        this.stream = ytdl(this.queue.peek() || "", {
-          filter: "audioonly",
-          quality: "lowestaudio",
-          liveBuffer: 5000,
-          dlChunkSize: 1024 * 1024 * 1,
-        });
+        this.stream = createAudioResource(
+          ytdl(this.queue.peek() || "", {
+            filter: "audioonly",
+            quality: "lowestaudio",
+            liveBuffer: 5000,
+            dlChunkSize: 1024 * 1024 * 1,
+          })
+        );
         const finish = async () => {
           this.queue.dequeue();
           if (!this.queue.peek()) {
@@ -154,9 +162,15 @@ export default class MusicPlayer extends Extension<Command> {
             await this.play(message, "", next);
           }
         };
-        this.dispatcher = this.connection.play(this.stream);
-        this.dispatcher.on("finish", finish);
+        this.audioplayer = createAudioPlayer();
+        this.audioplayer.play(this.stream);
+        this.connection.subscribe(this.audioplayer);
+        this.audioplayer.on(AudioPlayerStatus.Idle, finish);
+        //TODO delete that
+        //this.audioplayer = this.connection?.play(this.stream);
+        //this.audioplayer.on("finish", finish);
         console.log(`Start playing: ${args}, url: ${this.queue.peek()}`);
+        return;
       }
     } catch (error) {
       console.error(error);
@@ -174,9 +188,9 @@ export default class MusicPlayer extends Extension<Command> {
         message.reply("i'm not playing anything right now");
         return;
       }
-      this.connection.disconnect();
+      this.audioplayer?.stop()  
       this.queue.clear();
-      message.reply("player stopped");
+      message.channel.send("player stopped");
     } catch (error) {
       console.error(error);
     }
@@ -189,11 +203,11 @@ export default class MusicPlayer extends Extension<Command> {
    */
 
   private pause = async (message: Message): Promise<void> => {
-    if (!this.dispatcher) {
+    if (!this.audioplayer) {
       message.reply("not playing anything right now ^^'");
       return;
     }
-    this.dispatcher.pause();
+    this.audioplayer.pause();
     message.channel.send("player paused");
   };
 
@@ -203,11 +217,11 @@ export default class MusicPlayer extends Extension<Command> {
    */
 
   private resume = async (message: Message): Promise<void> => {
-    if (!this.dispatcher) {
+    if (!this.audioplayer) {
       message.reply("not playing anything right now ^^'");
       return;
     }
-    this.dispatcher.resume();
+    this.audioplayer.unpause();
   };
 
   /**
@@ -216,40 +230,41 @@ export default class MusicPlayer extends Extension<Command> {
 
   private skip = async (message: Message): Promise<void> => {
     try {
-      if (!this.dispatcher) {
+      if (!this.audioplayer) {
         message.reply("not playing anything right now ^^'");
         return;
       }
-      this.dispatcher.destroy();
+      this.audioplayer.stop();
       this.queue.dequeue();
     } catch (error) {
       console.error(error);
     }
   };
-
+  /*
   private setVolume = async (message: Message, args: number): Promise<void> => {
     try {
-      if (!this.dispatcher) {
+      if (!this.audioplayer) {
         message.reply("not playing anything right now ^^'");
         return;
       }
-      this.dispatcher.setVolume(args);
+      this.audioplayer.setVolume(args);
       console.log("volume is now to: " + args);
     } catch (error) {
       console.error(error);
     }
   };
+*/
   private list = async (message: Message, args: string): Promise<void> => {
     try {
-        switch (args) {
-            case "show":
-                console.log(this.queue)
-                break;
-        
-            default:
-                console.log("no arguments")
-                break;
-        }
+      switch (args) {
+        case "show":
+          console.log(this.queue);
+          break;
+
+        default:
+          console.log("no arguments");
+          break;
+      }
     } catch (error) {
       console.error(error);
     }

@@ -1,7 +1,11 @@
 # SilviaBot 🌿
 
 Silvia is a discord's bot that play music 🎵
-
+## install
+  `git clone...`
+  `npm i`
+  `npm start`
+  Ready to use
 ## commands
 
 ### Mention silvia to ask her to do something :
