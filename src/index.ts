@@ -6,7 +6,7 @@ import { readdirSync } from 'fs';
 import { Command } from './Extensions/Extension';
 const main = async (): Promise<void> => {
     try {
-        const client: Client = new Client({intents: ['GUILD_VOICE_STATES', 'GUILD_MESSAGES','GUILD_MEMBERS' , 'GUILDS']});
+        const client: Client = new Client({intents: ['GUILD_VOICE_STATES', 'GUILD_MESSAGES','GUILD_MEMBERS' , 'GUILDS',]});
 
         let controller: Controller<Command> | undefined
     

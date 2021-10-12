@@ -251,7 +251,8 @@ export default class MusicPlayer extends Extension<Command> {
         return;
       }
       if(!this.stream)return;
-      this.stream.volume?.setVolume(args)
+      if(!this.stream.volume)return;
+      this.stream.volume.setVolume(args)
       console.log("volume is now to: " + args);
     } catch (error) {
       console.error(error);
